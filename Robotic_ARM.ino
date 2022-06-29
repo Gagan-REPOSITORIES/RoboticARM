@@ -8,10 +8,23 @@
 #define PI 3.14159
 //variables of the chess board and arm in mm
 #define CHESSX 270
-#define CHESSY 270
-#define DELTAY 72
-#define ARML 125.0
+#define CHESSY 270 
+
+#define ARML 125.0 
 #define BOXLENGTH 33.5625
+//#define DOF3
+#define DOF4
+
+#ifdef DOF3
+  #define DELTAY 64.0
+#endif
+
+#ifdef DOF4
+  #define DELTAY 97.0
+  #define l1 350.0 //shoulder
+  #define l2 270.12//elbow
+  #define l3 83.39 //wrist
+#endif
 
 
 //Initialization of the Servos
@@ -39,6 +52,7 @@
   String dataIn = "";
 #endif
 
+float yValue = 0.5;
 
 void setup() 
 {
@@ -71,8 +85,6 @@ void setup()
   delay(100);
   Serial.println("Program Started");
   #endif
-
-
 }
 
 void loop() 
@@ -90,10 +102,15 @@ void loop()
  //float radians = asin(0.707);
  //float degrees = (radians*180)/PI; //converts the value to the degrees
 #ifdef DEBUG
-positionCalculator(83.9,115.9);
+//positionCalculator(BOXLENGTH*0.5,BOXLENGTH*0.5);
+// delay(2000);
+ movement(3,90);
+// movement(1,90);
+// positionCalculator(BOXLENGTH*1.5,BOXLENGTH*3.5);
+// delay(2000);
+// movement(2,90);
+// movement(1,90);
 #endif
-
-
 }
 
 void movement(byte number, byte degree)
@@ -155,7 +172,7 @@ calcultes the inverse of the tan,sin and cos in radians
 
 float asin(float c)
 {
-
+//calcultes the inverse of the sin
 float out;
 
 out= ((c+(c*c*c)/6+(3*c*c*c*c*c)/40+(5*c*c*c*c*c*c*c)/112 +
@@ -168,7 +185,6 @@ out= ((c+(c*c*c)/6+(3*c*c*c*c*c)/40+(5*c*c*c*c*c*c*c)/112 +
 
 ));
 
-//asin
 
 if(c>=.96 && c<.97){out=1.287+(3.82*(c-.96)); }
 if(c>=.97 && c<.98){out=(1.325+4.5*(c-.97)); } // arcsin
@@ -180,8 +196,7 @@ if(c>=.99 && c<=1){out=(1.43+14*(c-.99)); }
 return out;
 }
 
-float acos(float c)
-{
+float acos(float c){
   float out;
   out=asin(sqrt(1-c*c));
   return out;
@@ -196,18 +211,19 @@ float atan(float c)
 
 void positionCalculator(float x, float y)
 {
+  #ifdef DOF3
   float theta = asin((y+DELTAY)/sqrt((y+DELTAY)*(y+DELTAY) + (x*x))); //in radians
   theta = (theta*180)/PI;
 
   float alpha = acos(sqrt((y+DELTAY)*(y+DELTAY) + (x*x))/(2*ARML));
-  alpha = (alpha*180)/PI;
+  alpha = ((alpha*180)/PI);
 
-  float beta = 180 - (2*alpha);
-
-
+  float beta = 180-(2*alpha);//180-(2*alpha)
 
   #ifdef SERVO
-  //movement(0,theta);
+  movement(0,round(theta));
+  movement(2,round(beta-180)); //servos direction offset
+  movement(1,round(alpha));
   #endif
   #ifdef DEBUG
   Serial.print("Theta : ");
@@ -219,5 +235,44 @@ void positionCalculator(float x, float y)
   Serial.print("beta : ");
   Serial.print(round(beta));
   Serial.println(" ; ");
+  #endif
+  #endif
+
+  #ifdef DOF4
+  float h = sqrt((y+DELTAY)*(y+DELTAY) + (x*x));
+
+  float theta = asin((y+DELTAY)/h); //in radians
+  theta = (theta*180)/PI;
+
+  float alpha = acos(((l2*l2) - (l1*l1) - (h*h) - (l3*l3) ) / (-2*l1*sqrt(h*h + l3*l3))) + atan(l3/h);
+  alpha = (alpha*180)/PI;
+
+  float beta = acos(((y+DELTAY)*(y+DELTAY) + (x*x) + (l3*l3) - (l2*l2) - (l1*l1)) / (-2*l1*l2));
+  beta = (beta*180)/PI;
+
+  float gamma = (270-alpha-beta);
+
+  #ifdef SERVO
+  movement(0,round(theta));
+  movement(2,round(180-beta));//direction of servos ; here 0 degree is changed
+  movement(1,round(alpha-4)); //offset because of servos
+  movement(3,round(gamma-90));
+  #endif
+
+  #ifdef DEBUG
+  Serial.print("Theta : ");
+  Serial.print(round(theta));
+  Serial.print(" ; ");
+  Serial.print("alpha : ");
+  Serial.print(round(alpha));
+  Serial.print(" ; ");
+  Serial.print("beta : ");
+  Serial.print((beta));
+  Serial.print(" ; ");
+  Serial.print("gamma : ");
+  Serial.print(round(gamma));
+  Serial.println(" ; ");
+  #endif
+
   #endif
 }
